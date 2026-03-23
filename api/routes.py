@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from api.job_store import job_store
 from core.assembler import run_translation_job
@@ -82,6 +82,29 @@ async def progress(job_id: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/pdf/{job_id}")
+async def serve_pdf(job_id: str):
+    pdf_path = UPLOAD_DIR / f"{job_id}.pdf"
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="PDF 파일을 찾을 수 없습니다.")
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline"},
+    )
+
+
+@router.delete("/job/{job_id}")
+async def cleanup_job(job_id: str):
+    pdf_path = UPLOAD_DIR / f"{job_id}.pdf"
+    try:
+        pdf_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+    job_store.cleanup(job_id)
+    return JSONResponse({"ok": True})
 
 
 @router.get("/result/{job_id}")

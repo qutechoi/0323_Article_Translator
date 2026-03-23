@@ -56,7 +56,7 @@ const progressLabel = $('progress-label');
 const progressStatus = $('progress-status');
 
 const panelsEl = $('panels');
-const bodyOriginal = $('body-original');
+const pdfViewer = $('pdf-viewer');
 const bodyTranslated = $('body-translated');
 
 const copyBtn = $('copy-btn');
@@ -195,6 +195,7 @@ async function startTranslation() {
     }
     const { job_id } = await res.json();
     currentJobId = job_id;
+    pdfViewer.src = `/api/pdf/${job_id}`;
     listenProgress(job_id);
   } catch (e) {
     showZone('upload');
@@ -267,50 +268,29 @@ async function fetchFullResult() {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function renderPanels() {
-  bodyOriginal.innerHTML = '';
   bodyTranslated.innerHTML = '';
 
   sections.forEach(sec => {
-    const origEl = makeSectionEl(sec, 'original');
-    const tranEl = makeSectionEl(sec, 'translated');
-
-    origEl.addEventListener('click', () => scrollSync(sec.index, 'translated'));
-    tranEl.addEventListener('click', () => scrollSync(sec.index, 'original'));
-
-    bodyOriginal.appendChild(origEl);
+    const tranEl = makeSectionEl(sec);
     bodyTranslated.appendChild(tranEl);
   });
 }
 
-function makeSectionEl(sec, side) {
+function makeSectionEl(sec) {
   const div = document.createElement('div');
   div.className = 'section-block' + (sec.is_heading ? ' is-heading' : '');
   div.dataset.index = sec.index;
 
-  const text = side === 'original'
-    ? sec.original_text
-    : (sec.translated_text || '');
-
   const p = document.createElement('p');
-  if (text) {
+  if (sec.translated_text) {
     p.className = 'section-text';
-    p.textContent = text;
+    p.textContent = sec.translated_text;
   } else {
     p.className = 'section-placeholder';
     p.textContent = '번역 중...';
   }
   div.appendChild(p);
   return div;
-}
-
-function scrollSync(index, targetSide) {
-  const panelBody = targetSide === 'original' ? bodyOriginal : bodyTranslated;
-  const el = panelBody.querySelector(`[data-index="${index}"]`);
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    el.classList.add('highlight');
-    setTimeout(() => el.classList.remove('highlight'), 1500);
-  }
 }
 
 // ── Tabs ───────────────────────────────────────────────────────────────────────
@@ -350,16 +330,23 @@ saveBtn.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-newBtn.addEventListener('click', () => {
+newBtn.addEventListener('click', async () => {
   if (sse) sse.close();
+  if (currentJobId) {
+    fetch(`/api/job/${currentJobId}`, { method: 'DELETE' }).catch(() => {});
+  }
   selectedFile = null;
   fileInput.value = '';
   selectedFileName.textContent = '';
   translateBtn.disabled = true;
   sections = [];
   currentJobId = null;
-  bodyOriginal.innerHTML = '';
+  pdfViewer.src = '';
   bodyTranslated.innerHTML = '';
+  // 탭을 기본(나란히 보기)으로 리셋
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-tab="side"]').classList.add('active');
+  panelsEl.className = 'panels';
   showZone('upload');
 });
 

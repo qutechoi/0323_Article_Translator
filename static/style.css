@@ -340,6 +340,15 @@ header h1 {
   gap: 0;
 }
 
+/* ── PDF iframe ─────────────────────────── */
+#pdf-viewer {
+  flex: 1;
+  width: 100%;
+  border: none;
+  display: block;
+  background: #fff;
+}
+
 /* ── Section Cards ──────────────────────── */
 .section-block {
   padding: 12px 16px;

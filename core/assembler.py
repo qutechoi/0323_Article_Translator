@@ -1,8 +1,6 @@
-import asyncio
-import os
 from pathlib import Path
 
-from core.models import JobState, JobStatus, ProviderConfig
+from core.models import JobStatus, ProviderConfig
 from core.pdf_parser import parse_pdf
 from core.chunker import build_chunks
 from core.translator import translate_chunk
@@ -41,9 +39,6 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
         for chunk in chunks:
             translated = await translate_chunk(chunk.text, cfg, chunk.context_prefix)
 
-            # Split translated text back across the sections in this chunk
-            # Simple approach: assign full translation to first section in chunk,
-            # then try to split by double newline to match section count.
             parts = _split_translation(translated, len(chunk.section_indices))
             for i, sec_idx in enumerate(chunk.section_indices):
                 if i < len(parts):
@@ -88,13 +83,7 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
         await job_store.push_event(
             job_id, {"event": "error", "data": {"message": str(exc)}}
         )
-
-    finally:
-        # Clean up uploaded file
-        try:
-            Path(pdf_path).unlink(missing_ok=True)
-        except OSError:
-            pass
+        # PDF는 에러 시에도 유지 (뷰어에서 볼 수 있도록)
 
 
 def _split_translation(text: str, count: int) -> list[str]:
@@ -103,9 +92,7 @@ def _split_translation(text: str, count: int) -> list[str]:
         return [text]
     parts = [p.strip() for p in text.split("\n\n") if p.strip()]
     if len(parts) >= count:
-        # Merge excess parts into last segment
         result = parts[: count - 1]
         result.append("\n\n".join(parts[count - 1 :]))
         return result
-    # Not enough splits — distribute as-is
     return parts + [""] * (count - len(parts))
