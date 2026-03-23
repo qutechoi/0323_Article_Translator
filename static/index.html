@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Article Translator</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<header>
+  <h1>Article Translator</h1>
+  <span class="header-sub">영문 학술 논문 → 한국어</span>
+</header>
+
+<div class="app-body">
+
+  <!-- Settings Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-title">번역 설정</div>
+
+    <div class="field">
+      <label for="provider">프로바이더</label>
+      <select id="provider">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI (GPT)</option>
+        <option value="google">Google (Gemini)</option>
+        <option value="lmstudio">LM Studio (로컬)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="model">모델</label>
+      <select id="model"></select>
+      <input type="text" id="model-custom" placeholder="모델명 직접 입력" style="display:none; margin-top:6px;" />
+    </div>
+
+    <div class="field" id="api-key-field">
+      <label for="api-key">API 키</label>
+      <input type="password" id="api-key" placeholder="sk-..." autocomplete="off" />
+    </div>
+
+    <div class="field" id="base-url-field" style="display:none;">
+      <label for="base-url">Base URL</label>
+      <input type="text" id="base-url" value="http://localhost:1234/v1" />
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Upload Zone -->
+    <section id="upload-zone">
+      <div class="drop-area" id="drop-area">
+        <div class="icon">📄</div>
+        <h2>PDF 논문 파일을 드래그하거나 클릭하세요</h2>
+        <p>영문 학술 논문 PDF (텍스트 기반)</p>
+      </div>
+      <input type="file" id="file-input" accept=".pdf" />
+      <div class="selected-file" id="selected-file-name"></div>
+      <button class="btn btn-primary" id="translate-btn" disabled>번역 시작</button>
+    </section>
+
+    <!-- Progress Zone -->
+    <section id="progress-zone">
+      <div class="progress-box">
+        <div class="progress-percent" id="progress-percent">0%</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-label" id="progress-label">준비 중...</div>
+        <div class="progress-status" id="progress-status"></div>
+      </div>
+    </section>
+
+    <!-- Result Zone -->
+    <section id="result-zone">
+      <div class="result-toolbar">
+        <div class="tab-group">
+          <button class="tab-btn active" data-tab="side">나란히 보기</button>
+          <button class="tab-btn" data-tab="translated">번역문만</button>
+          <button class="tab-btn" data-tab="original">원문만</button>
+        </div>
+        <button class="btn btn-secondary" id="copy-btn">복사</button>
+        <button class="btn btn-secondary" id="save-btn">TXT 저장</button>
+        <button class="btn btn-secondary" id="new-btn">새 번역</button>
+      </div>
+
+      <div class="panels" id="panels">
+        <div class="panel" id="panel-original">
+          <div class="panel-header">원문 (English)</div>
+          <div class="panel-body" id="body-original"></div>
+        </div>
+        <div class="panel" id="panel-translated">
+          <div class="panel-header">번역문 (한국어)</div>
+          <div class="panel-body" id="body-translated"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
