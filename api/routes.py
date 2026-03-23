@@ -3,7 +3,7 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from api.job_store import job_store
@@ -18,7 +18,6 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 @router.post("/upload")
 async def upload(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     provider: str = Form(...),
     model: str = Form(...),
@@ -50,7 +49,7 @@ async def upload(
     content = await file.read()
     pdf_path.write_bytes(content)
 
-    background_tasks.add_task(run_translation_job, job_id, str(pdf_path), cfg)
+    asyncio.create_task(run_translation_job(job_id, str(pdf_path), cfg))
 
     return JSONResponse({"job_id": job_id})
 
