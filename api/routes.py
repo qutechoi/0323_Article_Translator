@@ -71,7 +71,7 @@ async def progress(job_id: str):
             data = event.get("data", {})
             yield f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
-            if name in ("pdf_ready", "error"):
+            if name in ("pdf_ready", "pdf_error", "error"):
                 break
 
     return StreamingResponse(

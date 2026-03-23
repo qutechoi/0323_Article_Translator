@@ -249,12 +249,32 @@ function listenProgress(jobId) {
     showTranslatedPdf(jobId);
   });
 
+  sse.addEventListener('pdf_error', e => {
+    sse.close();
+    setProgress(100, '번역 완료 (PDF 생성 실패)');
+    // PDF 생성 실패 시 텍스트 번역 결과를 그대로 표시
+    const loading = $('translated-loading');
+    if (loading) loading.style.display = 'none';
+    bodyTranslated.style.display = '';
+    let msg = 'PDF 생성에 실패했습니다. 텍스트 결과를 표시합니다.';
+    try { msg = JSON.parse(e.data).message; } catch (_) {}
+    showToast(msg);
+  });
+
   sse.addEventListener('error', e => {
     sse.close();
     let msg = '번역 중 오류가 발생했습니다.';
     try { msg = JSON.parse(e.data).message; } catch (_) {}
-    showZone('upload');
-    showToast(msg);
+    // 이미 번역 결과가 있으면 결과 화면 유지
+    if (sections.length > 0) {
+      const loading = $('translated-loading');
+      if (loading) loading.style.display = 'none';
+      bodyTranslated.style.display = '';
+      showToast(msg);
+    } else {
+      showZone('upload');
+      showToast(msg);
+    }
   });
 
   sse.onerror = () => {

@@ -78,17 +78,6 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
         job_store.update(state)
         await job_store.push_event(job_id, {"event": "complete", "data": {}})
 
-        # --- Generate translated PDF ---
-        output_path = str(Path(pdf_path).parent / f"{job_id}_translated.pdf")
-        await asyncio.get_event_loop().run_in_executor(
-            None,
-            generate_translated_pdf,
-            pdf_path,
-            state.sections,
-            output_path,
-        )
-        await job_store.push_event(job_id, {"event": "pdf_ready", "data": {}})
-
     except Exception as exc:
         state.status = JobStatus.error
         state.error_message = str(exc)
@@ -96,7 +85,24 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
         await job_store.push_event(
             job_id, {"event": "error", "data": {"message": str(exc)}}
         )
-        # PDF는 에러 시에도 유지 (뷰어에서 볼 수 있도록)
+        return
+
+    # --- Generate translated PDF (별도 try/except) ---
+    try:
+        output_path = str(Path(pdf_path).parent / f"{job_id}_translated.pdf")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            generate_translated_pdf,
+            pdf_path,
+            state.sections,
+            output_path,
+        )
+        await job_store.push_event(job_id, {"event": "pdf_ready", "data": {}})
+    except Exception as pdf_exc:
+        await job_store.push_event(
+            job_id, {"event": "pdf_error", "data": {"message": f"PDF 생성 실패: {pdf_exc}"}}
+        )
 
 
 def _split_translation(text: str, count: int) -> list[str]:
