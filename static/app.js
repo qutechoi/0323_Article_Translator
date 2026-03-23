@@ -237,49 +237,41 @@ function listenProgress(jobId) {
   });
 
   sse.addEventListener('complete', () => {
+    sse.close();
     setProgress(100, '번역 완료! PDF 생성 중...');
     fetchFullResult();
-    // 번역 패널 오른쪽에 로딩 스피너 표시
     showTranslatedLoading();
-  });
-
-  sse.addEventListener('pdf_ready', () => {
-    sse.close();
-    setProgress(100, '완료!');
-    showTranslatedPdf(jobId);
-  });
-
-  sse.addEventListener('pdf_error', e => {
-    sse.close();
-    setProgress(100, '번역 완료 (PDF 생성 실패)');
-    // PDF 생성 실패 시 텍스트 번역 결과를 그대로 표시
-    const loading = $('translated-loading');
-    if (loading) loading.style.display = 'none';
-    bodyTranslated.style.display = '';
-    let msg = 'PDF 생성에 실패했습니다. 텍스트 결과를 표시합니다.';
-    try { msg = JSON.parse(e.data).message; } catch (_) {}
-    showToast(msg);
+    pollForTranslatedPdf(jobId);
   });
 
   sse.addEventListener('error', e => {
     sse.close();
     let msg = '번역 중 오류가 발생했습니다.';
     try { msg = JSON.parse(e.data).message; } catch (_) {}
-    // 이미 번역 결과가 있으면 결과 화면 유지
-    if (sections.length > 0) {
-      const loading = $('translated-loading');
-      if (loading) loading.style.display = 'none';
-      bodyTranslated.style.display = '';
-      showToast(msg);
-    } else {
-      showZone('upload');
-      showToast(msg);
-    }
+    showZone('upload');
+    showToast(msg);
   });
 
-  sse.onerror = () => {
-    // Connection dropped — might just be the stream finishing
-  };
+  sse.onerror = () => {};
+}
+
+// ── Poll for translated PDF ──────────────────────────────────────────────────
+async function pollForTranslatedPdf(jobId) {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      const res = await fetch(`/api/translated-pdf/${jobId}`, { method: 'HEAD' });
+      if (res.ok) {
+        showTranslatedPdf(jobId);
+        return;
+      }
+    } catch (_) {}
+  }
+  // 타임아웃 — 텍스트 결과로 대체
+  const loading = $('translated-loading');
+  if (loading) loading.style.display = 'none';
+  bodyTranslated.style.display = '';
+  showToast('PDF 생성 시간이 초과되었습니다.');
 }
 
 async function fetchFullResult() {

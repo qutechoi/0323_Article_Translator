@@ -73,7 +73,7 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
                 },
             )
 
-        # --- Translation done ---
+        # --- Translation done → SSE closes here ---
         state.status = JobStatus.complete
         job_store.update(state)
         await job_store.push_event(job_id, {"event": "complete", "data": {}})
@@ -87,7 +87,7 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
         )
         return
 
-    # --- Generate translated PDF (별도 try/except) ---
+    # --- Generate translated PDF (SSE와 무관하게 별도 실행) ---
     try:
         output_path = str(Path(pdf_path).parent / f"{job_id}_translated.pdf")
         loop = asyncio.get_running_loop()
@@ -98,11 +98,8 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
             state.sections,
             output_path,
         )
-        await job_store.push_event(job_id, {"event": "pdf_ready", "data": {}})
-    except Exception as pdf_exc:
-        await job_store.push_event(
-            job_id, {"event": "pdf_error", "data": {"message": f"PDF 생성 실패: {pdf_exc}"}}
-        )
+    except Exception:
+        pass  # 프론트엔드가 폴링으로 감지
 
 
 def _split_translation(text: str, count: int) -> list[str]:
