@@ -57,6 +57,8 @@ class JobState(BaseModel):
     completed_chunks: int = 0
     sections: list[DocumentSection] = []
     error_message: Optional[str] = None
+    pdf_ready: bool = False
+    pdf_error: Optional[str] = None
 
     @property
     def percent(self) -> int:

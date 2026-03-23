@@ -90,16 +90,22 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
     # --- Generate translated PDF (SSE와 무관하게 별도 실행) ---
     try:
         output_path = str(Path(pdf_path).parent / f"{job_id}_translated.pdf")
+        sections_copy = list(state.sections)
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             None,
             generate_translated_pdf,
             pdf_path,
-            state.sections,
+            sections_copy,
             output_path,
         )
-    except Exception:
-        pass  # 프론트엔드가 폴링으로 감지
+        state.pdf_ready = True
+        job_store.update(state)
+    except Exception as pdf_exc:
+        state.pdf_error = str(pdf_exc)
+        job_store.update(state)
+        import traceback
+        traceback.print_exc()
 
 
 def _split_translation(text: str, count: int) -> list[str]:

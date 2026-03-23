@@ -49,9 +49,20 @@ async def upload(
     content = await file.read()
     pdf_path.write_bytes(content)
 
-    asyncio.create_task(run_translation_job(job_id, str(pdf_path), cfg))
+    task = asyncio.create_task(run_translation_job(job_id, str(pdf_path), cfg))
+    task.add_done_callback(_log_task_exception)
 
     return JSONResponse({"job_id": job_id})
+
+
+def _log_task_exception(task: asyncio.Task) -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc:
+        import traceback
+        print(f"[task error] {exc}")
+        traceback.print_exception(type(exc), exc, exc.__traceback__)
 
 
 @router.get("/progress/{job_id}")
@@ -132,6 +143,8 @@ async def result(job_id: str):
             "total_chunks": state.total_chunks,
             "completed_chunks": state.completed_chunks,
             "error_message": state.error_message,
+            "pdf_ready": state.pdf_ready,
+            "pdf_error": state.pdf_error,
             "sections": [
                 {
                     "index": s.index,

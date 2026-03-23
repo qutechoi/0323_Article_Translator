@@ -260,18 +260,27 @@ async function pollForTranslatedPdf(jobId) {
   for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 500));
     try {
-      const res = await fetch(`/api/translated-pdf/${jobId}`, { method: 'HEAD' });
-      if (res.ok) {
+      const res = await fetch(`/api/result/${jobId}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.pdf_ready) {
         showTranslatedPdf(jobId);
+        return;
+      }
+      if (data.pdf_error) {
+        fallbackToText(`PDF 생성 실패: ${data.pdf_error}`);
         return;
       }
     } catch (_) {}
   }
-  // 타임아웃 — 텍스트 결과로 대체
+  fallbackToText('PDF 생성 시간이 초과되었습니다.');
+}
+
+function fallbackToText(msg) {
   const loading = $('translated-loading');
   if (loading) loading.style.display = 'none';
   bodyTranslated.style.display = '';
-  showToast('PDF 생성 시간이 초과되었습니다.');
+  showToast(msg);
 }
 
 async function fetchFullResult() {
