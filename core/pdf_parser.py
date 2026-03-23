@@ -7,7 +7,7 @@ try:
 except ImportError:
     raise ImportError("PyMuPDF is required: pip install pymupdf")
 
-from core.models import DocumentSection
+from core.models import DocumentSection, TextPosition
 
 
 @dataclass
@@ -145,6 +145,14 @@ def parse_pdf(path: str) -> list[DocumentSection]:
                 heading=text if is_heading else None,
                 original_text=text,
                 is_heading=is_heading,
+                position=TextPosition(
+                    page=block.page,
+                    x0=block.x0,
+                    y0=block.y0,
+                    x1=block.x1,
+                    y1=block.y1,
+                    font_size=block.font_size,
+                ),
             )
         )
 

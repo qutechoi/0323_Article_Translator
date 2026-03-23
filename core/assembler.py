@@ -1,9 +1,11 @@
+import asyncio
 from pathlib import Path
 
 from core.models import JobStatus, ProviderConfig
 from core.pdf_parser import parse_pdf
 from core.chunker import build_chunks
 from core.translator import translate_chunk
+from core.pdf_generator import generate_translated_pdf
 from api.job_store import job_store
 
 
@@ -71,10 +73,21 @@ async def run_translation_job(job_id: str, pdf_path: str, cfg: ProviderConfig) -
                 },
             )
 
-        # --- Done ---
+        # --- Translation done ---
         state.status = JobStatus.complete
         job_store.update(state)
         await job_store.push_event(job_id, {"event": "complete", "data": {}})
+
+        # --- Generate translated PDF ---
+        output_path = str(Path(pdf_path).parent / f"{job_id}_translated.pdf")
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            generate_translated_pdf,
+            pdf_path,
+            state.sections,
+            output_path,
+        )
+        await job_store.push_event(job_id, {"event": "pdf_ready", "data": {}})
 
     except Exception as exc:
         state.status = JobStatus.error

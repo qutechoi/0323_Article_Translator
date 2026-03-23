@@ -25,12 +25,22 @@ class JobStatus(str, Enum):
     error = "error"
 
 
+class TextPosition(BaseModel):
+    page: int
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    font_size: float
+
+
 class DocumentSection(BaseModel):
     index: int
     heading: Optional[str] = None
     original_text: str
     translated_text: Optional[str] = None
     is_heading: bool = False
+    position: Optional[TextPosition] = None  # 원본 PDF 내 좌표
 
 
 class TextChunk(BaseModel):

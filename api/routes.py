@@ -71,7 +71,7 @@ async def progress(job_id: str):
             data = event.get("data", {})
             yield f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
-            if name in ("complete", "error"):
+            if name in ("pdf_ready", "error"):
                 break
 
     return StreamingResponse(
@@ -96,13 +96,25 @@ async def serve_pdf(job_id: str):
     )
 
 
+@router.get("/translated-pdf/{job_id}")
+async def serve_translated_pdf(job_id: str):
+    pdf_path = UPLOAD_DIR / f"{job_id}_translated.pdf"
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="번역 PDF가 아직 준비되지 않았습니다.")
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline"},
+    )
+
+
 @router.delete("/job/{job_id}")
 async def cleanup_job(job_id: str):
-    pdf_path = UPLOAD_DIR / f"{job_id}.pdf"
-    try:
-        pdf_path.unlink(missing_ok=True)
-    except OSError:
-        pass
+    for suffix in [".pdf", "_translated.pdf"]:
+        try:
+            (UPLOAD_DIR / f"{job_id}{suffix}").unlink(missing_ok=True)
+        except OSError:
+            pass
     job_store.cleanup(job_id)
     return JSONResponse({"ok": True})
 

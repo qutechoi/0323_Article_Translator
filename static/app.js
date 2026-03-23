@@ -58,6 +58,8 @@ const progressStatus = $('progress-status');
 const panelsEl = $('panels');
 const pdfViewer = $('pdf-viewer');
 const bodyTranslated = $('body-translated');
+const translatedPdfViewer = $('translated-pdf-viewer');
+const headerTranslated = $('header-translated');
 
 const copyBtn = $('copy-btn');
 const saveBtn = $('save-btn');
@@ -235,10 +237,16 @@ function listenProgress(jobId) {
   });
 
   sse.addEventListener('complete', () => {
-    sse.close();
-    setProgress(100, '번역 완료!');
-    // Fetch full result to ensure all sections populated
+    setProgress(100, '번역 완료! PDF 생성 중...');
     fetchFullResult();
+    // 번역 패널 오른쪽에 로딩 스피너 표시
+    showTranslatedLoading();
+  });
+
+  sse.addEventListener('pdf_ready', () => {
+    sse.close();
+    setProgress(100, '완료!');
+    showTranslatedPdf(jobId);
   });
 
   sse.addEventListener('error', e => {
@@ -342,13 +350,44 @@ newBtn.addEventListener('click', async () => {
   sections = [];
   currentJobId = null;
   pdfViewer.src = '';
+  translatedPdfViewer.src = '';
+  translatedPdfViewer.style.display = 'none';
+  bodyTranslated.style.display = '';
   bodyTranslated.innerHTML = '';
+  headerTranslated.textContent = '번역문 (한국어)';
   // 탭을 기본(나란히 보기)으로 리셋
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('[data-tab="side"]').classList.add('active');
   panelsEl.className = 'panels';
   showZone('upload');
 });
+
+// ── Translated PDF helpers ─────────────────────────────────────────────────────
+function showTranslatedLoading() {
+  bodyTranslated.style.display = 'none';
+  translatedPdfViewer.style.display = 'none';
+
+  // 로딩 스피너를 패널 안에 표시
+  let loading = $('translated-loading');
+  if (!loading) {
+    loading = document.createElement('div');
+    loading.id = 'translated-loading';
+    loading.className = 'pdf-generating';
+    loading.innerHTML = '<div class="spinner"></div><span>번역 PDF 생성 중...</span>';
+    $('panel-translated').appendChild(loading);
+  }
+  loading.style.display = 'flex';
+}
+
+function showTranslatedPdf(jobId) {
+  const loading = $('translated-loading');
+  if (loading) loading.style.display = 'none';
+
+  bodyTranslated.style.display = 'none';
+  translatedPdfViewer.src = `/api/translated-pdf/${jobId}`;
+  translatedPdfViewer.style.display = 'block';
+  headerTranslated.textContent = '번역문 PDF (한국어)';
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function setProgress(pct, label) {
