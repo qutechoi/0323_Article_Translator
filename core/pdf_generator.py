@@ -1,3 +1,5 @@
+import os
+import sys
 from pathlib import Path
 
 import fitz
@@ -7,6 +9,11 @@ from core.models import DocumentSection
 
 # ── 한국어 폰트 탐색 ──────────────────────────────────────────────────────────
 _FONT_CANDIDATES = [
+    # Windows 네이티브
+    "C:/Windows/Fonts/malgun.ttf",
+    "C:/Windows/Fonts/malgunbd.ttf",
+    "C:/Windows/Fonts/gulim.ttc",
+    "C:/Windows/Fonts/batang.ttc",
     # WSL2 — Windows 폰트 마운트
     "/mnt/c/Windows/Fonts/malgun.ttf",
     "/mnt/c/Windows/Fonts/malgunbd.ttf",
@@ -25,18 +32,35 @@ _FONT_CANDIDATES = [
 ]
 
 _font_buffer_cache: bytes | None = None
+_font_searched: bool = False
 
 
 def _load_korean_font() -> bytes | None:
-    """폰트 파일을 메모리에 한 번만 읽어 캐싱한다."""
-    global _font_buffer_cache
-    if _font_buffer_cache is not None:
+    global _font_buffer_cache, _font_searched
+    if _font_searched:
         return _font_buffer_cache
+    _font_searched = True
+
+    # Windows 사용자 폰트 폴더도 검색
+    if sys.platform == "win32":
+        local_fonts = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "Windows" / "Fonts"
+        if local_fonts.is_dir():
+            for f in local_fonts.glob("*.ttf"):
+                try:
+                    _font_buffer_cache = f.read_bytes()
+                    return _font_buffer_cache
+                except OSError:
+                    continue
+
     for p in _FONT_CANDIDATES:
         path = Path(p)
         if path.exists():
-            _font_buffer_cache = path.read_bytes()
-            return _font_buffer_cache
+            try:
+                _font_buffer_cache = path.read_bytes()
+                return _font_buffer_cache
+            except OSError:
+                continue
+
     return None
 
 
@@ -48,10 +72,14 @@ def generate_translated_pdf(
     output_path: str,
 ) -> None:
     font_buffer = _load_korean_font()
+    if font_buffer is None:
+        raise RuntimeError(
+            "한국어 폰트를 찾을 수 없습니다. "
+            "C:\\Windows\\Fonts\\malgun.ttf 등 한국어 폰트가 설치되어 있는지 확인해주세요."
+        )
 
     doc = fitz.open(original_path)
 
-    # 위치 정보 + 번역문이 모두 있는 섹션만 페이지별 그룹핑
     page_sections: dict[int, list[DocumentSection]] = {}
     for sec in sections:
         if sec.position is None or not sec.translated_text:
@@ -75,17 +103,12 @@ def generate_translated_pdf(
             rect = fitz.Rect(pos.x0, pos.y0, pos.x1, pos.y1)
             page.add_redact_annot(rect, fill=(1, 1, 1), text="")
 
-        # images=0 → 이미지를 건드리지 않음 (상수 대신 정수 사용으로 호환성 보장)
         page.apply_redactions(images=0)
 
-        # 2단계: 페이지에 한국어 폰트를 한 번만 등록
-        if font_buffer:
-            page.insert_font(fontname="KO", fontbuffer=font_buffer)
-            fontname = "KO"
-        else:
-            fontname = "cjk"
+        # 2단계: 같은 위치에 번역문 삽입
+        # 페이지에 폰트를 먼저 등록한 뒤 insert_textbox로 텍스트 삽입
+        page.insert_font(fontname="KO", fontbuffer=font_buffer)
 
-        # 3단계: 같은 위치에 번역문 삽입 (fontbuffer/fontfile 재전달 불필요)
         for sec in secs:
             pos = sec.position
             rect = fitz.Rect(pos.x0, pos.y0, pos.x1, pos.y1)
@@ -94,7 +117,7 @@ def generate_translated_pdf(
             rc = page.insert_textbox(
                 rect,
                 sec.translated_text,
-                fontname=fontname,
+                fontname="KO",
                 fontsize=font_size,
                 color=(0, 0, 0),
                 align=fitz.TEXT_ALIGN_LEFT,
@@ -102,11 +125,12 @@ def generate_translated_pdf(
 
             # 박스 넘침 시 폰트 축소 재시도
             if rc < 0:
+                smaller = max(font_size * 0.7, 5.0)
                 page.insert_textbox(
                     rect,
                     sec.translated_text,
-                    fontname=fontname,
-                    fontsize=max(font_size * 0.7, 5.0),
+                    fontname="KO",
+                    fontsize=smaller,
                     color=(0, 0, 0),
                     align=fitz.TEXT_ALIGN_LEFT,
                 )
